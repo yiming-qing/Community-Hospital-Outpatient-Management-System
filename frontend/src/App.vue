@@ -1,23 +1,48 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { SwitchButton, Calendar, Service, Monitor, Setting, OfficeBuilding, UserFilled, Histogram } from '@element-plus/icons-vue'
+import {
+  SwitchButton,
+  Calendar,
+  Service,
+  Monitor,
+  Setting,
+  OfficeBuilding,
+  UserFilled,
+  Histogram,
+} from '@element-plus/icons-vue'
 
 import { clearAuth, getUser } from './utils/storage'
 
 const router = useRouter()
 const route = useRoute()
-const user = computed(() => getUser())
+
+// ⭐ 响应式 user
+const user = ref(getUser())
+
+function syncUser() {
+  user.value = getUser()
+}
+
+onMounted(() => {
+  window.addEventListener('auth-changed', syncUser)
+  syncUser()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('auth-changed', syncUser)
+})
 
 const activeIndex = computed(() => route.path)
 
 const roleLabel = computed(() => {
-  if (!user.value) return ''
-  if (user.value.role === 'patient') return '患者'
-  if (user.value.role === 'receptionist') return '前台'
-  if (user.value.role === 'admin') return '管理员'
-  return user.value.role
+  const u = user.value
+  if (!u) return ''
+  if (u.role === 'patient') return '患者'
+  if (u.role === 'receptionist') return '前台'
+  if (u.role === 'admin') return '管理员'
+  return u.role
 })
 
 function logout() {
@@ -35,9 +60,9 @@ function logout() {
           <el-icon class="brand-icon" :size="28" color="#009688"><Monitor /></el-icon>
           <span class="brand-text">社区医院门诊管理系统</span>
         </div>
-        
+
         <div class="nav-menu">
-           <el-menu
+          <el-menu
             :default-active="activeIndex"
             mode="horizontal"
             :ellipsis="false"
@@ -104,7 +129,9 @@ function logout() {
           <template v-if="user">
             <el-dropdown>
               <span class="el-dropdown-link">
-                <el-avatar :size="32" class="user-avatar">{{ (user.username || '').slice(0, 1).toUpperCase() }}</el-avatar>
+                <el-avatar :size="32" class="user-avatar">
+                  {{ ((user.username || '').slice(0, 1) || '?').toUpperCase() }}
+                </el-avatar>
                 <span class="username">{{ user.username }} ({{ roleLabel }})</span>
               </span>
               <template #dropdown>
@@ -116,9 +143,10 @@ function logout() {
               </template>
             </el-dropdown>
           </template>
+
           <template v-else>
-            <el-button round @click="$router.push('/register')">患者注册</el-button>
-            <el-button type="primary" round @click="$router.push('/login')">登录</el-button>
+            <el-button round @click="router.push('/register')">患者注册</el-button>
+            <el-button type="primary" round @click="router.push('/login')">登录</el-button>
           </template>
         </div>
       </div>

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from flask import Blueprint, request
 
 from ..extensions import db
@@ -23,14 +25,19 @@ def list_departments():
 def create_appointment():
     payload = request.get_json(silent=True) or {}
     dept_id = payload.get("dept_id")
-    expected_time = parse_datetime(payload.get("expected_time") or "")
+
+    raw_expected = (payload.get("expected_time") or "").strip()
+    if not raw_expected:
+        raise APIError("expected_time is required", code="validation_error", status=400)
+
+    expected_time = parse_datetime(raw_expected)
+
+    # ✅ 核心：不允许预约过去时间（给 30 秒容忍，避免前后端时钟微小偏差）
+    if expected_time < datetime.now() - timedelta(seconds=30):
+        raise APIError("不能预约过去的时间", code="validation_error", status=400)
 
     if not dept_id:
-        raise APIError(
-            "dept_id is required",
-            code="validation_error",
-            status=400,
-        )
+        raise APIError("dept_id is required", code="validation_error", status=400)
 
     department = Department.query.get(dept_id)
     if department is None:
@@ -56,6 +63,7 @@ def create_appointment():
     db.session.commit()
 
     return ok(appt.to_dict(), status=201)
+
 
 
 @bp.get("/appointments/query")

@@ -23,6 +23,69 @@ const queryForm = reactive({
   status: '',
 })
 
+function disabledDate(date) {
+  // 禁用今天之前的日期（仍然可浏览月份）
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+  return date.getTime() < todayStart.getTime()
+}
+
+function disabledTime(d) {
+  if (!d) return {}
+
+  // 兼容：Date / dayjs (dayjs 有 toDate) / 其他
+  const date = d instanceof Date ? d : (typeof d.toDate === 'function' ? d.toDate() : null)
+  if (!date) return {}
+
+  const now = new Date()
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+
+  if (!isToday) return {}
+
+  const nowHour = now.getHours()
+  const nowMinute = now.getMinutes()
+  const nowSecond = now.getSeconds()
+
+  return {
+    disabledHours: () => Array.from({ length: nowHour }, (_, i) => i),
+    disabledMinutes: (hour) =>
+      hour === nowHour ? Array.from({ length: nowMinute }, (_, i) => i) : [],
+    disabledSeconds: (hour, minute) =>
+      hour === nowHour && minute === nowMinute
+        ? Array.from({ length: nowSecond }, (_, i) => i)
+        : [],
+  }
+}
+
+/*function ceilToNextMinute(d) {
+  const x = new Date(d)
+  x.setSeconds(0, 0)
+  x.setMinutes(x.getMinutes() + 1)
+  return x
+}
+
+// 监听用户选的时间，如果是过去时间就自动修正到下一分钟
+function onPickerChange(val) {
+  if (!val) return
+
+  // val 由于 value-format 是字符串，这里转 Date
+  const picked = new Date(val.replace(' ', 'T'))  // "YYYY-MM-DD HH:mm:ss" -> Date
+  const min = ceilToNextMinute(new Date())
+
+  if (picked.getTime() < min.getTime()) {
+    // 把时间修正为可选的最小值（下一分钟）
+    const pad = (n) => String(n).padStart(2, '0')
+    const fixed =
+      `${min.getFullYear()}-${pad(min.getMonth()+1)}-${pad(min.getDate())} ` +
+      `${pad(min.getHours())}:${pad(min.getMinutes())}:00`
+    createForm.expected_time = fixed
+  }
+}
+*/
+
 async function loadDepartments() {
   try {
     deptOptions.value = await listDepartments()
@@ -119,6 +182,7 @@ onMounted(async () => {
             </el-form-item>
 
             <el-form-item label="预计到达时间">
+            <!-- 如需自动纠正到下一分钟：恢复 @change="onPickerChange" 并取消 script 内相关函数注释 -->
               <el-date-picker 
                 v-model="createForm.expected_time" 
                 type="datetime" 
@@ -127,6 +191,9 @@ onMounted(async () => {
                 value-format="YYYY-MM-DD HH:mm:ss" 
                 style="width: 100%"
                 :prefix-icon="Calendar"
+                :disabled-date="disabledDate"
+                :disabled-time="disabledTime"
+                :editable="false"
               />
             </el-form-item>
 
@@ -149,7 +216,8 @@ onMounted(async () => {
           </template>
 
           <div class="query-bar">
-            <el-select v-model="queryForm.status" clearable placeholder="状态筛选" style="width: 120px; margin-left: 10px;">
+            <el-select v-model="queryForm.status" clearable placeholder="状态筛选" style="width: 140px; margin-left: 10px;">
+              <el-option label="全部状态" value="" />
               <el-option label="待确认" value="待确认" />
               <el-option label="已确认" value="已确认" />
               <el-option label="已完成" value="已完成" />
