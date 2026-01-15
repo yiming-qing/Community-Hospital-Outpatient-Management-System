@@ -207,6 +207,11 @@ def onsite_register():
 
     raw_expected = payload.get("expected_time") or datetime.now().isoformat(sep=" ", timespec="seconds")
     target_dt = parse_datetime(raw_expected)
+    from datetime import timedelta
+
+    # ✅ 核心：不允许现场挂号选择过去时间（给 30 秒容忍，避免前后端时钟微小偏差）
+    if target_dt < datetime.now() - timedelta(seconds=30):
+        raise APIError("不能预约过去的时间", code="validation_error", status=400)
 
     try:
         schedule = _reserve_schedule(dept_id=int(dept_id), target_dt=target_dt)
