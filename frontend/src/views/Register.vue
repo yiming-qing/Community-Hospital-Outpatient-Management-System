@@ -5,9 +5,11 @@ import { ElMessage } from 'element-plus'
 
 import { register } from '../api/auth'
 import { setAuth } from '../utils/storage'
+import { phoneRules } from '../utils/validators'
 
 const router = useRouter()
 const loading = ref(false)
+const formRef = ref()
 
 const form = reactive({
   username: '',
@@ -18,11 +20,24 @@ const form = reactive({
   id_card: '',
 })
 
+const rules = {
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, message: '用户名至少 3 位', trigger: 'blur' },
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码至少 6 位', trigger: 'blur' },
+  ],
+  name: [
+    { required: true, message: '请输入姓名', trigger: 'blur' },
+  ],
+  phone: phoneRules,
+}
+
 async function onSubmit() {
-  if (!form.username || !form.password || !form.name || !form.phone) {
-    ElMessage.warning('请填写用户名、密码、姓名和电话')
-    return
-  }
+  const valid = await formRef.value.validate()
+  if (!valid) return
 
   loading.value = true
   try {
@@ -52,32 +67,52 @@ async function onSubmit() {
         <div class="title">患者注册</div>
       </template>
 
-      <el-form :model="form" label-width="90px" @submit.prevent="onSubmit">
-        <el-form-item label="用户名">
+      <el-form
+        :model="form"
+        :rules="rules"
+        ref="formRef"
+        label-width="90px"
+        @submit.prevent="onSubmit"
+      >
+        <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" placeholder="至少 3 位" />
         </el-form-item>
-        <el-form-item label="密码">
-          <el-input v-model="form.password" type="password" placeholder="至少 6 位" show-password />
+
+        <el-form-item label="密码" prop="password">
+          <el-input
+            v-model="form.password"
+            type="password"
+            placeholder="至少 6 位"
+            show-password
+          />
         </el-form-item>
-        <el-form-item label="姓名">
+
+        <el-form-item label="姓名" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item label="电话">
+
+        <el-form-item label="电话" prop="phone">
           <el-input v-model="form.phone" />
         </el-form-item>
+
         <el-form-item label="性别(可选)">
           <el-select v-model="form.gender" clearable placeholder="请选择" style="width: 100%">
             <el-option label="男" value="男" />
             <el-option label="女" value="女" />
           </el-select>
         </el-form-item>
+
         <el-form-item label="身份证(可选)">
           <el-input v-model="form.id_card" />
         </el-form-item>
 
         <el-form-item>
-          <el-button type="primary" :loading="loading" @click="onSubmit">注册并登录</el-button>
-          <el-button text @click="$router.push('/login')">已有账号？去登录</el-button>
+          <el-button type="primary" :loading="loading" @click="onSubmit">
+            注册并登录
+          </el-button>
+          <el-button text @click="$router.push('/login')">
+            已有账号？去登录
+          </el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -97,4 +132,3 @@ async function onSubmit() {
   font-weight: 700;
 }
 </style>
-

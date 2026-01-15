@@ -1,4 +1,5 @@
 <script setup>
+import { phoneRules } from '../utils/validators'
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Calendar } from '@element-plus/icons-vue'
@@ -8,6 +9,13 @@ import { onsiteRegister } from '../api/receptionist'
 
 const deptOptions = ref([])
 const loading = ref(false)
+const formRef = ref()
+
+const rules = {
+  name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+  phone: phoneRules,
+  dept_id: [{ required: true, message: '请选择科室', trigger: 'change' }],
+}
 
 const form = reactive({
   name: '',
@@ -28,10 +36,8 @@ async function loadDepartments() {
 }
 
 async function onSubmit() {
-  if (!form.name || !form.phone || !form.dept_id) {
-    ElMessage.warning('请填写姓名、电话和科室')
-    return
-  }
+  const valid = await formRef.value.validate()
+  if (!valid) return
 
   loading.value = true
   try {
@@ -45,7 +51,6 @@ async function onSubmit() {
     })
     ElMessage.success(`登记成功：Visit ${visit.visit_id}，诊室 ${visit.room?.room_number || '-'}，医生 ${visit.doctor?.name || '-'}`)
 
-    // keep patient info, reset dept/time for next
     form.name = ''
     form.phone = ''
     form.gender = ''
@@ -71,15 +76,15 @@ onMounted(loadDepartments)
       </div>
     </template>
 
-    <el-form :model="form" label-position="top" size="large">
+    <el-form :model="form" :rules="rules" ref="formRef" label-position="top" size="large">
       <el-row :gutter="20">
         <el-col :xs="24" :md="12">
-          <el-form-item label="姓名">
+          <el-form-item label="姓名" prop="name">
             <el-input v-model="form.name" />
           </el-form-item>
         </el-col>
         <el-col :xs="24" :md="12">
-          <el-form-item label="联系电话">
+          <el-form-item label="联系电话" prop="phone">
             <el-input v-model="form.phone" />
           </el-form-item>
         </el-col>
@@ -103,9 +108,14 @@ onMounted(loadDepartments)
 
       <el-row :gutter="20">
         <el-col :xs="24" :md="12">
-          <el-form-item label="就诊科室">
+          <el-form-item label="就诊科室" prop="dept_id">
             <el-select v-model="form.dept_id" placeholder="请选择科室" style="width: 100%">
-              <el-option v-for="d in deptOptions" :key="d.dept_id" :label="d.dept_name" :value="d.dept_id" />
+              <el-option
+                v-for="d in deptOptions"
+                :key="d.dept_id"
+                :label="d.dept_name"
+                :value="d.dept_id"
+              />
             </el-select>
           </el-form-item>
         </el-col>
@@ -128,6 +138,7 @@ onMounted(loadDepartments)
         <el-button type="primary" class="submit-btn" :loading="loading" @click="onSubmit">提交登记</el-button>
       </div>
     </el-form>
+
   </el-card>
 </template>
 

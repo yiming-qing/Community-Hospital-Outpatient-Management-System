@@ -14,6 +14,8 @@ const dialogVisible = ref(false)
 const dialogLoading = ref(false)
 const editing = ref(null)
 
+const formRef = ref()
+
 const form = reactive({
   emp_id: '',
   name: '',
@@ -25,10 +27,28 @@ const form = reactive({
   status: '在职',
 })
 
+const rules = {
+  emp_id: [{ required: true, message: '请填写工号', trigger: 'blur' }],
+  name: [{ required: true, message: '请填写姓名', trigger: 'blur' }],
+  phone: [
+    {
+      validator: (rule, value, callback) => {
+        // 电话可选：有值才校验
+        if (!value) return callback()
+        const ok = /^1[3-9]\d{9}$/.test(String(value).trim())
+        ok ? callback() : callback(new Error('请输入合法的11位手机号'))
+      },
+      trigger: 'blur',
+    },
+  ],
+}
+
 const positions = ['医生', '护士', '前台', '管理员']
 const statuses = ['在职', '离职', '休假']
 
-const deptName = computed(() => (deptId) => deptOptions.value.find((d) => d.dept_id === deptId)?.dept_name || '')
+const deptName = computed(
+  () => (deptId) => deptOptions.value.find((d) => d.dept_id === deptId)?.dept_name || ''
+)
 
 async function load() {
   loading.value = true
@@ -43,8 +63,7 @@ async function load() {
   }
 }
 
-function openCreate() {
-  editing.value = null
+function resetForm() {
   form.emp_id = ''
   form.name = ''
   form.gender = '男'
@@ -53,6 +72,14 @@ function openCreate() {
   form.title = ''
   form.dept_id = null
   form.status = '在职'
+
+  // 清理校验状态（对话框 destroy-on-close 时也可不写，但写了更稳）
+  if (formRef.value?.clearValidate) formRef.value.clearValidate()
+}
+
+function openCreate() {
+  editing.value = null
+  resetForm()
   dialogVisible.value = true
 }
 
@@ -66,21 +93,22 @@ function openEdit(row) {
   form.title = row.title || ''
   form.dept_id = row.dept_id
   form.status = row.status
+
+  if (formRef.value?.clearValidate) formRef.value.clearValidate()
   dialogVisible.value = true
 }
 
 async function onSubmit() {
-  if (!form.emp_id || !form.name) {
-    ElMessage.warning('请填写工号和姓名')
-    return
-  }
+  const valid = await formRef.value?.validate?.()
+  if (!valid) return
+
   dialogLoading.value = true
   try {
     if (editing.value) {
       await updateEmployee(form.emp_id, {
         name: form.name,
         gender: form.gender,
-        phone: form.phone || null,
+        phone: form.phone ? String(form.phone).trim() : null,
         position: form.position,
         title: form.title || null,
         dept_id: form.dept_id,
@@ -92,7 +120,7 @@ async function onSubmit() {
         emp_id: form.emp_id,
         name: form.name,
         gender: form.gender,
-        phone: form.phone || null,
+        phone: form.phone ? String(form.phone).trim() : null,
         position: form.position,
         title: form.title || null,
         dept_id: form.dept_id,
@@ -141,42 +169,55 @@ onMounted(load)
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="editing ? '编辑员工' : '新增员工'" width="560px">
-      <el-form :model="form" label-width="90px">
-        <el-form-item label="工号">
+    <el-dialog
+      v-model="dialogVisible"
+      :title="editing ? '编辑员工' : '新增员工'"
+      width="560px"
+      destroy-on-close
+    >
+      <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
+        <el-form-item label="工号" prop="emp_id">
           <el-input v-model="form.emp_id" :disabled="!!editing" />
         </el-form-item>
-        <el-form-item label="姓名">
+
+        <el-form-item label="姓名" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
+
         <el-form-item label="性别">
           <el-select v-model="form.gender" style="width: 100%">
             <el-option label="男" value="男" />
             <el-option label="女" value="女" />
           </el-select>
         </el-form-item>
+
         <el-form-item label="岗位">
           <el-select v-model="form.position" style="width: 100%">
             <el-option v-for="p in positions" :key="p" :label="p" :value="p" />
           </el-select>
         </el-form-item>
+
         <el-form-item label="职称">
           <el-input v-model="form.title" placeholder="可选" />
         </el-form-item>
+
         <el-form-item label="科室">
           <el-select v-model="form.dept_id" clearable placeholder="可选" style="width: 100%">
             <el-option v-for="d in deptOptions" :key="d.dept_id" :label="d.dept_name" :value="d.dept_id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="电话">
-          <el-input v-model="form.phone" placeholder="可选" />
+
+        <el-form-item label="电话" prop="phone">
+          <el-input v-model="form.phone" placeholder="可选（11位手机号）" />
         </el-form-item>
+
         <el-form-item label="状态">
           <el-select v-model="form.status" style="width: 100%">
             <el-option v-for="s in statuses" :key="s" :label="s" :value="s" />
           </el-select>
         </el-form-item>
       </el-form>
+
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="dialogLoading" @click="onSubmit">保存</el-button>
@@ -195,4 +236,3 @@ onMounted(load)
   font-weight: 700;
 }
 </style>
-
